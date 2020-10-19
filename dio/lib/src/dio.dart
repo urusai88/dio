@@ -863,9 +863,10 @@ abstract class DioMixin implements Dio {
     // we can handle the return value of interceptor callback.
     Function _errorInterceptorWrapper(errInterceptor) {
       return (err) {
-        return checkIfNeedEnqueue(interceptors.errorLock, (){
+        return checkIfNeedEnqueue(interceptors.errorLock, () {
           if (err is! Response) {
-            return errInterceptor(assureDioError(err, requestOptions)).then((e){
+            return errInterceptor(assureDioError(err, requestOptions))
+                .then((e) {
               if (e is! Response) {
                 throw assureDioError(e ?? err, requestOptions);
               }
@@ -983,7 +984,7 @@ abstract class DioMixin implements Dio {
     ]);
   }
 
-  Future<Stream<Uint8List>> _transformData(RequestOptions options) async {
+  Future<Stream<List<int>>> _transformData(RequestOptions options) async {
     var data = options.data;
     List<int> bytes;
     Stream<List<int>> stream;
@@ -1020,7 +1021,9 @@ abstract class DioMixin implements Dio {
         }
         // support data sending progress
         length = bytes.length;
+        stream = Stream.fromIterable([bytes]);
 
+        /*
         var group = <List<int>>[];
         const size = 1024;
         var groupCount = (bytes.length / size).ceil();
@@ -1029,12 +1032,14 @@ abstract class DioMixin implements Dio {
           group.add(bytes.sublist(start, math.min(start + size, bytes.length)));
         }
         stream = Stream.fromIterable(group);
+        */
       }
 
       if (length != null) {
         options.headers[Headers.contentLengthHeader] = length.toString();
       }
       var complete = 0;
+      /*
       var byteStream =
           stream.transform<Uint8List>(StreamTransformer.fromHandlers(
         handleData: (data, sink) {
@@ -1053,8 +1058,9 @@ abstract class DioMixin implements Dio {
           }
         },
       ));
+      */
       if (options.sendTimeout > 0) {
-        byteStream.timeout(Duration(milliseconds: options.sendTimeout),
+        stream.timeout(Duration(milliseconds: options.sendTimeout),
             onTimeout: (sink) {
           sink.addError(DioError(
             request: options,
@@ -1064,7 +1070,7 @@ abstract class DioMixin implements Dio {
           sink.close();
         });
       }
-      return byteStream;
+      return stream;
     } else {
       options.headers.remove(Headers.contentTypeHeader);
     }

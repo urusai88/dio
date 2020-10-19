@@ -26,6 +26,12 @@ class BrowserHttpClientAdapter implements HttpClientAdapter {
     var xhr = HttpRequest();
     _xhrs.add(xhr);
 
+    xhr.onProgress.listen((event) {
+      if (event.lengthComputable) {
+        options.onSendProgress?.call(event.loaded, event.total);
+      }
+    });
+
     xhr
       ..open(options.method, options.uri.toString(), async: true)
       ..responseType = 'blob'
@@ -46,8 +52,8 @@ class BrowserHttpClientAdapter implements HttpClientAdapter {
           ResponseBody.fromBytes(
             body,
             xhr.status,
-            headers: xhr.responseHeaders
-                .map((k, v) => MapEntry(k, v.split(','))),
+            headers:
+                xhr.responseHeaders.map((k, v) => MapEntry(k, v.split(','))),
             statusMessage: xhr.statusText,
             isRedirect: xhr.status == 302 || xhr.status == 301,
           ),
@@ -94,7 +100,8 @@ class BrowserHttpClientAdapter implements HttpClientAdapter {
       xhr.send();
     } else {
       requestStream
-          .reduce((a, b) => Uint8List.fromList([...a, ...b]))
+          .reduce((a, b) => a + b)
+          .then((v) => Uint8List.fromList(v))
           .then(xhr.send);
     }
 
